@@ -1,3 +1,4 @@
+
 altair
 numpy
 pandas
@@ -34,3 +35,4 @@ python-Levenshtein==0.21.0
 jellyfish
 xlrd
 Shapely
+jellyfish==1.0.0 
