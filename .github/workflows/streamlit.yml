@@ -24,4 +24,4 @@ jobs:
         pip install joblib   # Add this line to install joblib
 
     - name: Run Streamlit app
-      run: streamlit run app.py
+      run: streamlit run Introduction.py
