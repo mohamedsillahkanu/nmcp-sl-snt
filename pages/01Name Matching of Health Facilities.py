@@ -4,19 +4,35 @@ import numpy as np
 from jellyfish import jaro_winkler_similarity
 from io import BytesIO
 
-def show_columns_comparison(df1, df2):
-    """Display columns from both datasets side by side"""
-    col1, col2 = st.columns(2)
+st.title("Health Facility Name Matching Tool")
+
+st.write("""
+    ### Why Health Facility Name Matching?
     
-    with col1:
-        st.write("Master Facility List Columns:")
-        for col in df1.columns:
-            st.write(f"- {col}")
-            
-    with col2:
-        st.write("DHIS2 Facility List Columns:")
-        for col in df2.columns:
-            st.write(f"- {col}")
+    Accurate health facility name matching is crucial for:
+    
+    1. **Data Quality**: Ensuring consistency between the Master Facility List (MFL) and DHIS2 facility names 
+    is essential for accurate health data reporting and analysis. This helps maintain data integrity across 
+    different health information systems.
+    
+    2. **Resource Allocation**: Proper facility matching helps in tracking resource distribution and avoiding 
+    duplication in supply chain management. This ensures efficient distribution of medical supplies and 
+    equipment.
+    
+    3. **Monitoring & Evaluation**: Accurate facility matching enables better tracking of health interventions 
+    and their impacts across different health information systems. This is crucial for program evaluation 
+    and impact assessment.
+    
+    4. **Decision Making**: Having standardized facility names across systems supports evidence-based 
+    decision making and improves data use for public health actions. This leads to better health service 
+    delivery and planning.
+    
+    This tool uses advanced string matching algorithms to:
+    - Compare facility names between MFL and DHIS2
+    - Identify potential matches and discrepancies
+    - Suggest standardized naming conventions
+    - Generate reports for review and updates
+    """)
 
 def calculate_match(column1, column2, threshold):
     """Calculate matching scores between two columns using Jaro-Winkler similarity."""
@@ -57,36 +73,7 @@ def calculate_match(column1, column2, threshold):
     return pd.DataFrame(results)
 
 def main():
-    st.title("Health Facility Name Matching Tool")
-    
-    # Introduction
-    st.write("""
-    ### Why Health Facility Name Matching?
-    
-    Accurate health facility name matching is crucial for:
-    
-    1. **Data Quality**: Ensuring consistency between the Master Facility List (MFL) and DHIS2 facility names 
-    is essential for accurate health data reporting and analysis. This helps maintain data integrity across 
-    different health information systems.
-    
-    2. **Resource Allocation**: Proper facility matching helps in tracking resource distribution and avoiding 
-    duplication in supply chain management. This ensures efficient distribution of medical supplies and 
-    equipment.
-    
-    3. **Monitoring & Evaluation**: Accurate facility matching enables better tracking of health interventions 
-    and their impacts across different health information systems. This is crucial for program evaluation 
-    and impact assessment.
-    
-    4. **Decision Making**: Having standardized facility names across systems supports evidence-based 
-    decision making and improves data use for public health actions. This leads to better health service 
-    delivery and planning.
-    
-    This tool uses advanced string matching algorithms to:
-    - Compare facility names between MFL and DHIS2
-    - Identify potential matches and discrepancies
-    - Suggest standardized naming conventions
-    - Generate reports for review and updates
-    """)
+    st.title("Health Facility Name Matching")
 
     # Initialize session state
     if 'step' not in st.session_state:
@@ -117,19 +104,11 @@ def main():
 
                 st.success("Files uploaded successfully!")
                 
-                # Display columns comparison
-                st.subheader("Available Columns in Both Datasets")
-                show_columns_comparison(st.session_state.master_hf_list, 
-                                     st.session_state.health_facilities_dhis2_list)
-                
                 # Display previews
                 st.subheader("Preview of Master HF List")
                 st.dataframe(st.session_state.master_hf_list.head())
-                st.write(f"Total records in Master HF List: {len(st.session_state.master_hf_list)}")
-                
                 st.subheader("Preview of DHIS2 HF List")
                 st.dataframe(st.session_state.health_facilities_dhis2_list.head())
-                st.write(f"Total records in DHIS2 HF List: {len(st.session_state.health_facilities_dhis2_list)}")
 
                 if st.button("Proceed to Column Renaming"):
                     st.session_state.step = 2
@@ -215,15 +194,6 @@ def main():
                 # Display results
                 st.write("### Matching Results")
                 st.dataframe(hf_name_match_results)
-
-                # Display matching statistics
-                total_matches = len(hf_name_match_results[hf_name_match_results['Match_Status'] == 'Match'])
-                total_unmatches = len(hf_name_match_results[hf_name_match_results['Match_Status'] == 'Unmatch'])
-                
-                st.write("### Matching Statistics")
-                st.write(f"Total Matches: {total_matches}")
-                st.write(f"Total Unmatches: {total_unmatches}")
-                st.write(f"Match Rate: {(total_matches/len(hf_name_match_results)*100):.2f}%")
 
                 # Download results
                 output = BytesIO()
