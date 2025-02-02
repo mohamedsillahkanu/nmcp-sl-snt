@@ -2,7 +2,8 @@ import streamlit as st
 
 
 # Title of the app
-st.title("Automated Geospatial Analysis and Data Management")
+st.title("Automated SNT Analysis and Stratification in Sierra Leone")
+
 
 # Overview Section
 st.header("Overview")
