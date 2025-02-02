@@ -1,218 +1,187 @@
 import streamlit as st
+import geopandas as gpd
 import pandas as pd
+import matplotlib.pyplot as plt
+from shapely.geometry import Point
 import numpy as np
-from jellyfish import jaro_winkler_similarity
-from io import BytesIO
+from matplotlib.colors import LinearSegmentedColormap
 
-st.title("Health Facility Name Matching Tool")
+st.set_page_config(layout="wide", page_title="Health Facility Map Generator")
 
-st.write("""
-    ### Why Health Facility Name Matching?
-    
-    Accurate health facility name matching is crucial for:
-    
-    1. **Data Quality**: Ensuring consistency between the Master Facility List (MFL) and DHIS2 facility names 
-    is essential for accurate health data reporting and analysis. This helps maintain data integrity across 
-    different health information systems.
-    
-    2. **Resource Allocation**: Proper facility matching helps in tracking resource distribution and avoiding 
-    duplication in supply chain management. This ensures efficient distribution of medical supplies and 
-    equipment.
-    
-    3. **Monitoring & Evaluation**: Accurate facility matching enables better tracking of health interventions 
-    and their impacts across different health information systems. This is crucial for program evaluation 
-    and impact assessment.
-    
-    4. **Decision Making**: Having standardized facility names across systems supports evidence-based 
-    decision making and improves data use for public health actions. This leads to better health service 
-    delivery and planning.
-    
-    This tool uses advanced string matching algorithms to:
-    - Compare facility names between MFL and DHIS2
-    - Identify potential matches and discrepancies
-    - Suggest standardized naming conventions
-    - Generate reports for review and updates
-    """)
+st.title("Interactive Health Facility Map Generator")
+st.write("Upload your shapefiles and health facility data to generate a customized map.")
 
-def calculate_match(column1, column2, threshold):
-    """Calculate matching scores between two columns using Jaro-Winkler similarity."""
-    results = []
-    
-    for value1 in column1:
-        if value1 in column2.values:
-            results.append({
-                'Col1': value1,
-                'Col2': value1,
-                'Match_Score': 100,
-                'Match_Status': 'Match'
-            })
-        else:
-            best_score = 0
-            best_match = None
-            for value2 in column2:
-                similarity = jaro_winkler_similarity(str(value1), str(value2)) * 100
-                if similarity > best_score:
-                    best_score = similarity
-                    best_match = value2
-            results.append({
-                'Col1': value1,
-                'Col2': best_match,
-                'Match_Score': round(best_score, 2),
-                'Match_Status': 'Unmatch' if best_score < threshold else 'Match'
-            })
-    
-    for value2 in column2:
-        if value2 not in [r['Col2'] for r in results]:
-            results.append({
-                'Col1': None,
-                'Col2': value2,
-                'Match_Score': 0,
-                'Match_Status': 'Unmatch'
-            })
-    
-    return pd.DataFrame(results)
+# Create two columns for file uploads
+col1, col2 = st.columns(2)
 
-def main():
-    st.title("Health Facility Name Matching")
+with col1:
+    st.header("Upload Shapefiles")
+    shp_file = st.file_uploader("Upload .shp file", type=["shp"], key="shp")
+    shx_file = st.file_uploader("Upload .shx file", type=["shx"], key="shx")
+    dbf_file = st.file_uploader("Upload .dbf file", type=["dbf"], key="dbf")
 
-    # Initialize session state
-    if 'step' not in st.session_state:
-        st.session_state.step = 1
-    if 'master_hf_list' not in st.session_state:
-        st.session_state.master_hf_list = None
-    if 'health_facilities_dhis2_list' not in st.session_state:
-        st.session_state.health_facilities_dhis2_list = None
+with col2:
+    st.header("Upload Health Facility Data")
+    facility_file = st.file_uploader("Upload Excel file (.xlsx)", type=["xlsx"], key="facility")
 
-    # Step 1: File Upload
-    if st.session_state.step == 1:
-        st.header("Step 1: Upload Files")
-        mfl_file = st.file_uploader("Upload Master HF List (CSV, Excel):", type=['csv', 'xlsx', 'xls'])
-        dhis2_file = st.file_uploader("Upload DHIS2 HF List (CSV, Excel):", type=['csv', 'xlsx', 'xls'])
+# Check if all required files are uploaded
+if all([shp_file, shx_file, dbf_file, facility_file]):
+    try:
+        # Read shapefiles
+        with open("temp.shp", "wb") as f:
+            f.write(shp_file.read())
+        with open("temp.shx", "wb") as f:
+            f.write(shx_file.read())
+        with open("temp.dbf", "wb") as f:
+            f.write(dbf_file.read())
+        shapefile = gpd.read_file("temp.shp")
 
-        if mfl_file and dhis2_file:
-            try:
-                # Read files
-                if mfl_file.name.endswith('.csv'):
-                    st.session_state.master_hf_list = pd.read_csv(mfl_file)
-                else:
-                    st.session_state.master_hf_list = pd.read_excel(mfl_file)
+        # Read facility data
+        coordinates_data = pd.read_excel(facility_file)
 
-                if dhis2_file.name.endswith('.csv'):
-                    st.session_state.health_facilities_dhis2_list = pd.read_csv(dhis2_file)
-                else:
-                    st.session_state.health_facilities_dhis2_list = pd.read_excel(dhis2_file)
+        # Display data preview
+        st.subheader("Data Preview")
+        st.dataframe(coordinates_data.head())
 
-                st.success("Files uploaded successfully!")
-                
-                # Display previews
-                st.subheader("Preview of Master HF List")
-                st.dataframe(st.session_state.master_hf_list.head())
-                st.subheader("Preview of DHIS2 HF List")
-                st.dataframe(st.session_state.health_facilities_dhis2_list.head())
-
-                if st.button("Proceed to Column Renaming"):
-                    st.session_state.step = 2
-                    st.experimental_rerun()
-
-            except Exception as e:
-                st.error(f"Error reading files: {e}")
-
-    # Step 2: Column Renaming
-    elif st.session_state.step == 2:
-        st.header("Step 2: Rename Columns (Optional)")
+        # Map customization options
+        st.header("Map Customization")
         
-        col1, col2 = st.columns(2)
+        col3, col4, col5 = st.columns(3)
         
-        with col1:
-            st.subheader("Master HF List Columns")
-            mfl_renamed_columns = {}
-            for col in st.session_state.master_hf_list.columns:
-                new_col = st.text_input(f"Rename '{col}' to:", key=f"mfl_{col}", value=col)
-                mfl_renamed_columns[col] = new_col
+        with col3:
+            # Coordinate column selection
+            longitude_col = st.selectbox(
+                "Select Longitude Column",
+                coordinates_data.columns,
+                index=coordinates_data.columns.get_loc("w_long") if "w_long" in coordinates_data.columns else 0
+            )
+            latitude_col = st.selectbox(
+                "Select Latitude Column",
+                coordinates_data.columns,
+                index=coordinates_data.columns.get_loc("w_lat") if "w_lat" in coordinates_data.columns else 0
+            )
 
-        with col2:
-            st.subheader("DHIS2 HF List Columns")
-            dhis2_renamed_columns = {}
-            for col in st.session_state.health_facilities_dhis2_list.columns:
-                new_col = st.text_input(f"Rename '{col}' to:", key=f"dhis2_{col}", value=col)
-                dhis2_renamed_columns[col] = new_col
+        with col4:
+            # Visual customization
+            map_title = st.text_input("Map Title", "Health Facility Distribution")
+            point_size = st.slider("Point Size", 10, 200, 50)
+            point_alpha = st.slider("Point Transparency", 0.1, 1.0, 0.7)
 
-        if st.button("Apply Changes and Continue"):
-            st.session_state.master_hf_list = st.session_state.master_hf_list.rename(columns=mfl_renamed_columns)
-            st.session_state.health_facilities_dhis2_list = st.session_state.health_facilities_dhis2_list.rename(
-                columns=dhis2_renamed_columns)
-            st.session_state.step = 3
-            st.experimental_rerun()
-
-        if st.button("Skip Renaming"):
-            st.session_state.step = 3
-            st.experimental_rerun()
-
-    # Step 3: Column Selection and Matching
-    elif st.session_state.step == 3:
-        st.header("Step 3: Select Columns for Matching")
-        
-        mfl_col = st.selectbox("Select HF Name column in Master HF List:", 
-                              st.session_state.master_hf_list.columns)
-        dhis2_col = st.selectbox("Select HF Name column in DHIS2 HF List:", 
-                                st.session_state.health_facilities_dhis2_list.columns)
-        
-        threshold = st.slider("Set Match Threshold (0-100):", 
-                            min_value=0, max_value=100, value=70)
-
-        if st.button("Perform Matching"):
-            # Process data
-            master_hf_list_clean = st.session_state.master_hf_list.copy()
-            dhis2_list_clean = st.session_state.health_facilities_dhis2_list.copy()
+        with col5:
+            # Color selection
+            background_colors = ["white", "lightgray", "beige", "lightblue"]
+            point_colors = ["#47B5FF", "red", "green", "purple", "orange"]
             
-            master_hf_list_clean[mfl_col] = master_hf_list_clean[mfl_col].astype(str)
-            master_hf_list_clean = master_hf_list_clean.drop_duplicates(subset=[mfl_col])
-            dhis2_list_clean[dhis2_col] = dhis2_list_clean[dhis2_col].astype(str)
+            background_color = st.selectbox("Background Color", background_colors)
+            point_color = st.selectbox("Point Color", point_colors)
 
-            st.write("### Counts of Health Facilities")
-            st.write(f"Count of HFs in DHIS2 list: {len(dhis2_list_clean)}")
-            st.write(f"Count of HFs in MFL list: {len(master_hf_list_clean)}")
+        # Data processing
+        # Remove missing coordinates
+        coordinates_data = coordinates_data.dropna(subset=[longitude_col, latitude_col])
+        
+        # Filter invalid coordinates
+        coordinates_data = coordinates_data[
+            (coordinates_data[longitude_col].between(-180, 180)) &
+            (coordinates_data[latitude_col].between(-90, 90))
+        ]
 
-            # Perform matching
-            with st.spinner("Performing matching..."):
-                hf_name_match_results = calculate_match(
-                    master_hf_list_clean[mfl_col],
-                    dhis2_list_clean[dhis2_col],
-                    threshold
-                )
+        if len(coordinates_data) == 0:
+            st.error("No valid coordinates found in the data after filtering.")
+            st.stop()
 
-                # Rename columns and add new column for replacements
-                hf_name_match_results = hf_name_match_results.rename(
-                    columns={'Col1': 'HF_Name_in_MFL', 'Col2': 'HF_Name_in_DHIS2'}
-                )
-                hf_name_match_results['New_HF_Name_in_MFL'] = np.where(
-                    hf_name_match_results['Match_Score'] >= threshold,
-                    hf_name_match_results['HF_Name_in_DHIS2'],
-                    hf_name_match_results['HF_Name_in_MFL']
-                )
+        # Convert to GeoDataFrame
+        geometry = [Point(xy) for xy in zip(coordinates_data[longitude_col], coordinates_data[latitude_col])]
+        coordinates_gdf = gpd.GeoDataFrame(coordinates_data, geometry=geometry, crs="EPSG:4326")
 
-                # Display results
-                st.write("### Matching Results")
-                st.dataframe(hf_name_match_results)
+        # Ensure consistent CRS
+        if shapefile.crs is None:
+            shapefile = shapefile.set_crs(epsg=4326)
+        else:
+            shapefile = shapefile.to_crs(epsg=4326)
 
-                # Download results
-                output = BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    hf_name_match_results.to_excel(writer, index=False)
-                output.seek(0)
+        # Create the map with fixed aspect
+        fig, ax = plt.subplots(figsize=(15, 10))
 
+        # Plot shapefile with custom style
+        shapefile.plot(ax=ax, color=background_color, edgecolor='black', linewidth=0.5)
+
+        # Calculate and set appropriate aspect ratio
+        bounds = shapefile.total_bounds
+        mid_y = np.mean([bounds[1], bounds[3]])  # middle latitude
+        aspect = 1.0  # default aspect ratio
+        
+        if -90 < mid_y < 90:  # check if latitude is valid
+            try:
+                aspect = 1 / np.cos(np.radians(mid_y))
+                if not np.isfinite(aspect) or aspect <= 0:
+                    aspect = 1.0
+            except:
+                aspect = 1.0
+        
+        ax.set_aspect(aspect)
+
+        # Plot points with custom style
+        coordinates_gdf.plot(
+            ax=ax,
+            color=point_color,
+            markersize=point_size,
+            alpha=point_alpha
+        )
+
+        # Customize map appearance
+        plt.title(map_title, fontsize=20, pad=20)
+        plt.axis('off')
+
+        # Add statistics
+        stats_text = (
+            f"Total Facilities: {len(coordinates_data)}\n"
+            f"Coordinates Range:\n"
+            f"Longitude: {coordinates_data[longitude_col].min():.2f}° to {coordinates_data[longitude_col].max():.2f}°\n"
+            f"Latitude: {coordinates_data[latitude_col].min():.2f}° to {coordinates_data[latitude_col].max():.2f}°"
+        )
+        plt.figtext(0.02, 0.02, stats_text, fontsize=8, bbox=dict(facecolor='white', alpha=0.8))
+
+        # Display the map
+        st.pyplot(fig)
+
+        # Download options
+        col6, col7 = st.columns(2)
+        
+        with col6:
+            # Save high-resolution PNG
+            output_path_png = "health_facility_map.png"
+            plt.savefig(output_path_png, dpi=300, bbox_inches='tight', pad_inches=0.1)
+            with open(output_path_png, "rb") as file:
                 st.download_button(
-                    label="Download Matching Results as Excel",
-                    data=output,
-                    file_name="hf_name_matching_results.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    label="Download Map (PNG)",
+                    data=file,
+                    file_name="health_facility_map.png",
+                    mime="image/png"
                 )
 
-        if st.button("Start Over"):
-            st.session_state.step = 1
-            st.session_state.master_hf_list = None
-            st.session_state.health_facilities_dhis2_list = None
-            st.experimental_rerun()
+        with col7:
+            # Export coordinates as CSV
+            csv = coordinates_data.to_csv(index=False)
+            st.download_button(
+                label="Download Processed Data (CSV)",
+                data=csv,
+                file_name="processed_coordinates.csv",
+                mime="text/csv"
+            )
 
-if __name__ == "__main__":
-    main()
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
+        st.write("Please check your input files and try again.")
+
+else:
+    st.info("Please upload all required files to generate the map.")
+    
+    # Show example data format
+    st.subheader("Expected Data Format")
+    st.write("""
+    Your Excel file should contain at minimum:
+    - A column for longitude (e.g., 'w_long')
+    - A column for latitude (e.g., 'w_lat')
+    
+    The coordinates should be in decimal degrees format.
+    """)
