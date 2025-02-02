@@ -2,7 +2,9 @@ import streamlit as st
 
 
 # Title of the app
-st.title("Automated SNT Analysis and Stratification in Sierra Leone")
+st.title("Automation of Epidemiological stratification and Sub-National Tailoring (SNT) of malaria control interventions in Sierra Leone")
+
+![Sierra Leone Map](https://github.com/user-attachments/assets/1ce28ecc-191b-4f2d-bbfc-8944223bc993)
 
 
 # Overview Section
