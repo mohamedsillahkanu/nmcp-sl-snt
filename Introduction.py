@@ -6,7 +6,7 @@ st.title("Automation of Epidemiological stratification and Sub-National Tailorin
 
 st.image("https://github.com/mohamedsillahkanu/si/raw/b0706926bf09ba23d8e90c394fdbb17e864121d8/Sierra%20Leone%20Map.png", 
          caption="Sierra Leone Administrative Map",
-         use_column_width=True)
+         use_container_width=True)
 
 # Overview Section
 st.header("Overview")
