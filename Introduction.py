@@ -6,7 +6,7 @@ st.title("Automated Geospatial Analysis for Sub-National Tailoring of Malaria In
 # Display the image using the GitHub raw URL
 st.image("https://github.com/mohamedsillahkanu/si/raw/b0706926bf09ba23d8e90c394fdbb17e864121d8/Sierra%20Leone%20Map.png", 
          caption="Sierra Leone Administrative Map",
-         use_column_width=True)
+         use_container_width=True)
 
 # Overview Section
 st.header("Overview")
