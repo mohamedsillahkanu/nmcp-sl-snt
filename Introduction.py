@@ -4,7 +4,9 @@ import streamlit as st
 # Title of the app
 st.title("Automation of Epidemiological stratification and Sub-National Tailoring (SNT) of malaria control interventions in Sierra Leone")
 
-![Sierra Leone Map](https://githubusercontent.com/mohamedsillahkanu/si/raw/b0706926bf09ba23d8e90c394fdbb17e864121d8/Sierra%20Leone%20Map.png)
+st.image("https://github.com/mohamedsillahkanu/si/raw/b0706926bf09ba23d8e90c394fdbb17e864121d8/Sierra%20Leone%20Map.png", 
+         caption="Sierra Leone Administrative Map",
+         use_column_width=True)
 
 # Overview Section
 st.header("Overview")
